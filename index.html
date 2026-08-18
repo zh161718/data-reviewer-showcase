@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数据复盘员 · Agent 展示</title>
+  <meta name="description" content="数据复盘员 Agent 展示页：每天 21:00 把飞书群里的成交截图，自动变成五段式复盘文档并投递回群。纯静态演示，无真实数据，无 API 调用。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%236d8bff'/%3E%3Cpath d='M16 42l10-12 8 6 14-18' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='48' cy='18' r='4' fill='%2322d3ee'/%3E%3C/svg%3E" />
+  <style>
+    
+    /* ============ 基础变量与重置 ============ */
+    :root {
+      --bg: #0a0f1e;
+      --bg-soft: #0d1428;
+      --bg-card: rgba(255, 255, 255, 0.045);
+      --bg-card-hover: rgba(255, 255, 255, 0.075);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #eef1f8;
+      --text-muted: #98a2b8;
+      --text-faint: #6b7690;
+      --accent: #6d8bff;
+      --accent-2: #22d3ee;
+      --gradient: linear-gradient(120deg, #6d8bff 0%, #8b7bff 48%, #22d3ee 100%);
+      --gradient-soft: linear-gradient(120deg, rgba(109,139,255,.16), rgba(34,211,238,.10));
+      --success: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --container: 1140px;
+      --shadow: 0 24px 70px -24px rgba(0, 0, 0, 0.65);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(760px 420px at 12% -8%, rgba(109, 139, 255, 0.20), transparent 60%),
+        radial-gradient(720px 400px at 88% 4%, rgba(34, 211, 238, 0.13), transparent 60%),
+        radial-gradient(900px 600px at 50% 118%, rgba(139, 123, 255, 0.12), transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { width: min(var(--container), 92%); margin: 0 auto; position: relative; z-index: 1; }
+
+    a { color: inherit; text-decoration: none; }
+    ul { list-style: none; }
+    img, svg { display: block; }
+
+    section { padding: 96px 0; position: relative; }
+
+    /* ============ 通用组件 ============ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(109, 139, 255, 0.35);
+      background: rgba(109, 139, 255, 0.10);
+      color: #b9c6ff;
+      font-size: 13px;
+      letter-spacing: .04em;
+    }
+
+    .badge .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 12px var(--accent-2);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .45; transform: scale(.82); }
+    }
+
+    .section-head { text-align: center; max-width: 720px; margin: 0 auto 58px; }
+    .section-head .kicker {
+      font-size: 13px; font-weight: 600; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--accent-2); margin-bottom: 14px;
+    }
+    .section-head h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.25; letter-spacing: .01em; }
+    .section-head p { margin-top: 14px; color: var(--text-muted); font-size: 16px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 28px; border-radius: 12px; font-size: 15px; font-weight: 600;
+      border: 1px solid transparent; cursor: pointer; transition: all .22s ease;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--gradient); color: #fff;
+      box-shadow: 0 12px 32px -12px rgba(109, 139, 255, 0.65);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 18px 42px -12px rgba(109, 139, 255, 0.8); }
+    .btn-ghost {
+      background: rgba(255,255,255,.05); color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.28); transform: translateY(-2px); }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(8px);
+      transition: transform .25s ease, border-color .25s ease, background .25s ease;
+    }
+    .card:hover { transform: translateY(-5px); border-color: rgba(109,139,255,.35); background: var(--bg-card-hover); }
+
+    /* 滚动显现动画 */
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ============ 顶部导航 ============ */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      transition: background .3s ease, border-color .3s ease, backdrop-filter .3s ease;
+      border-bottom: 1px solid transparent;
+    }
+    .nav.scrolled {
+      background: rgba(10, 15, 30, 0.82);
+      backdrop-filter: blur(16px);
+      border-bottom-color: var(--border);
+    }
+    .nav-inner {
+      max-width: var(--container); margin: 0 auto; padding: 0 4%;
+      height: 72px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: .01em; }
+    .brand .logo { width: 34px; height: 34px; }
+    .nav-links { display: flex; gap: 34px; font-size: 15px; color: var(--text-muted); }
+    .nav-links a { transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta { display: flex; align-items: center; gap: 14px; }
+    .nav-cta .btn { padding: 10px 20px; font-size: 14px; }
+
+    .burger {
+      display: none; background: none; border: none; cursor: pointer;
+      width: 40px; height: 40px; border-radius: 10px; align-items: center; justify-content: center;
+    }
+    .burger span { display: block; width: 20px; height: 2px; background: var(--text); margin: 3px auto; border-radius: 2px; transition: all .25s; }
+    .burger.open span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+    .burger.open span:nth-child(2) { opacity: 0; }
+    .burger.open span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+
+    .mobile-menu {
+      display: none; flex-direction: column; gap: 4px;
+      background: rgba(10, 15, 30, 0.97); border-bottom: 1px solid var(--border);
+      padding: 12px 6% 22px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { padding: 12px 8px; border-radius: 10px; color: var(--text-muted); font-size: 15px; }
+    .mobile-menu a:hover { background: rgba(255,255,255,.06); color: var(--text); }
+    .mobile-menu .btn { margin-top: 10px; }
+
+    /* ============ Hero ============ */
+    .hero { padding: 168px 0 96px; }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 56px; align-items: center; }
+    .hero h1 {
+      font-size: clamp(34px, 5vw, 54px); line-height: 1.18; font-weight: 800;
+      letter-spacing: .005em; margin: 24px 0 20px;
+    }
+    .hero h1 .grad {
+      background: var(--gradient); -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    .hero-sub { font-size: 17px; color: var(--text-muted); max-width: 520px; }
+    .hero-actions { display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; }
+    .hero-meta { display: flex; gap: 24px; margin-top: 30px; color: var(--text-faint); font-size: 13.5px; flex-wrap: wrap; }
+    .hero-meta li { display: flex; align-items: center; gap: 7px; }
+    .hero-meta svg { width: 15px; height: 15px; color: var(--success); }
+
+    /* ---- 产品模拟窗口 ---- */
+    .mock-wrap { position: relative; }
+    .mock-wrap::before {
+      content: ""; position: absolute; inset: 8% -6% 4%;
+      background: radial-gradient(closest-side, rgba(109,139,255,.34), transparent 75%);
+      filter: blur(30px); z-index: 0;
+    }
+    .mock {
+      position: relative; z-index: 1; border-radius: 18px; overflow: hidden;
+      background: #0d1528; border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 40px 90px -30px rgba(0,0,0,.8);
+    }
+    .mock-bar {
+      display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+      background: rgba(255,255,255,.04); border-bottom: 1px solid var(--border);
+    }
+    .mock-bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a4258; }
+    .mock-bar i:nth-child(1) { background: #ff5f57; }
+    .mock-bar i:nth-child(2) { background: #febc2e; }
+    .mock-bar i:nth-child(3) { background: #28c840; }
+    .mock-bar .addr {
+      margin-left: 10px; flex: 1; max-width: 300px; text-align: center;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px 14px; font-size: 12px; color: var(--text-faint);
+    }
+    .mock-body { display: grid; grid-template-columns: 52px 1fr; min-height: 430px; }
+    .mock-side { border-right: 1px solid var(--border); padding: 14px 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .mock-side span { width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.07); display: grid; place-items: center; font-size: 12px; }
+    .mock-side span.on { background: rgba(109,139,255,.22); box-shadow: inset 0 0 0 1px rgba(109,139,255,.4); }
+    .mock-main { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .mock-title { display: flex; align-items: center; justify-content: space-between; }
+    .mock-title h4 { font-size: 14px; font-weight: 700; }
+    .mock-title .chip {
+      font-size: 11px; padding: 3px 10px; border-radius: 999px;
+      background: rgba(52, 211, 153, .12); border: 1px solid rgba(52,211,153,.3); color: var(--success);
+    }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .kpi { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+    .kpi .label { font-size: 11px; color: var(--text-faint); }
+    .kpi .value { font-size: 17px; font-weight: 700; margin-top: 2px; }
+    .kpi .delta { font-size: 11px; margin-top: 2px; display: flex; align-items: center; gap: 3px; }
+    .kpi .up { color: var(--success); }
+    .kpi .down { color: var(--danger); }
+    .mock-chart-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; flex: 1; }
+    .chart-card { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; }
+    .chart-card .c-head { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .chart-card .c-head b { color: var(--text); font-size: 12.5px; }
+    .chart-card svg { width: 100%; height: auto; }
+    .ai-note {
+      background: linear-gradient(135deg, rgba(109,139,255,.14), rgba(34,211,238,.08));
+      border: 1px solid rgba(109,139,255,.28); border-radius: 12px; padding: 12px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .ai-note .spark { flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; background: rgba(109,139,255,.2); display: grid; place-items: center; font-size: 13px; }
+    .ai-note p { font-size: 11.5px; color: #c3ccdf; line-height: 1.65; }
+    .ai-note p b { color: #e8ecf7; }
+
+    .float-chip {
+      position: absolute; z-index: 2; display: flex; align-items: center; gap: 9px;
+      background: rgba(16, 22, 40, .92); border: 1px solid var(--border-strong);
+      border-radius: 14px; padding: 10px 16px; font-size: 12.5px;
+      box-shadow: var(--shadow); backdrop-filter: blur(10px);
+      animation: float 5s ease-in-out infinite;
+    }
+    .float-chip .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-size: 14px; }
+    .float-chip b { display: block; font-size: 12.5px; line-height: 1.3; }
+    .float-chip small { display: block; color: var(--text-faint); font-size: 11px; line-height: 1.3; }
+    .float-1 { top: -22px; right: -14px; }
+    .float-1 .ico { background: rgba(34,211,238,.16); }
+    .float-2 { bottom: -20px; left: -26px; animation-delay: 1.4s; }
+    .float-2 .ico { background: rgba(109,139,255,.16); }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-9px); }
+    }
+
+    /* ============ 数据条 ============ */
+    .stats { padding: 0 0 96px; }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+      border: 1px solid var(--border); border-radius: 22px; padding: 38px 30px;
+    }
+    .stat { text-align: center; }
+    .stat .num {
+      font-size: clamp(30px, 4vw, 42px); font-weight: 800;
+      background: var(--gradient); -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      line-height: 1.2;
+    }
+    .stat .num .unit { font-size: .55em; margin-left: 2px; }
+    .stat .desc { color: var(--text-muted); font-size: 13.5px; margin-top: 6px; }
+
+    /* ============ 功能特性 ============ */
+    .features { background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent); }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feature { padding: 28px 26px; position: relative; overflow: hidden; }
+    .feature::after {
+      content: ""; position: absolute; right: -44px; top: -44px; width: 120px; height: 120px;
+      background: radial-gradient(closest-side, rgba(109,139,255,.16), transparent 75%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .feature:hover::after { opacity: 1; }
+    .feature .f-icon {
+      width: 48px; height: 48px; border-radius: 13px; margin-bottom: 18px;
+      background: var(--gradient-soft); border: 1px solid rgba(109,139,255,.28);
+      display: grid; place-items: center;
+    }
+    .feature .f-icon svg { width: 24px; height: 24px; color: #aebcff; }
+    .feature h3 { font-size: 17.5px; margin-bottom: 8px; }
+    .feature p { color: var(--text-muted); font-size: 14px; line-height: 1.75; }
+
+    /* ============ 使用场景 ============ */
+    .scene-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .scene { padding: 24px 22px; }
+    .scene .s-emoji { font-size: 30px; margin-bottom: 14px; }
+    .scene h3 { font-size: 16px; margin-bottom: 8px; }
+    .scene p { color: var(--text-muted); font-size: 13.5px; line-height: 1.7; }
+    .scene .arrow { color: var(--accent-2); font-size: 13px; margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; opacity: 0; transform: translateX(-6px); transition: all .25s; }
+    .scene:hover .arrow { opacity: 1; transform: none; }
+
+    /* ============ 工作流程 ============ */
+    .flow { background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent); }
+    .flow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; position: relative; }
+    .flow-grid::before {
+      content: ""; position: absolute; top: 34px; left: 8%; right: 8%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(109,139,255,.5), rgba(34,211,238,.5), transparent);
+    }
+    .flow-step { text-align: center; padding: 0 18px; position: relative; }
+    .flow-step .num {
+      width: 68px; height: 68px; margin: 0 auto 20px; border-radius: 50%;
+      background: #0d1428; border: 1px solid rgba(109,139,255,.4);
+      display: grid; place-items: center; font-size: 22px; font-weight: 800;
+      background-image: var(--gradient); -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      box-shadow: 0 0 0 8px rgba(10,15,30,1), 0 0 34px rgba(109,139,255,.18);
+      position: relative; z-index: 1; background-color: #0d1428;
+    }
+    .flow-step h3 { font-size: 16.5px; margin-bottom: 8px; }
+    .flow-step p { color: var(--text-muted); font-size: 13.5px; line-height: 1.7; }
+
+    /* ============ 复盘示例 ============ */
+    .report { background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent); }
+    .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 40px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 10px 24px; border-radius: 999px; border: 1px solid var(--border-strong);
+      background: rgba(255,255,255,.04); color: var(--text-muted); font-size: 14.5px; font-weight: 600;
+      cursor: pointer; transition: all .22s;
+    }
+    .tab-btn:hover { color: var(--text); border-color: rgba(255,255,255,.3); }
+    .tab-btn.active {
+      background: var(--gradient); color: #fff; border-color: transparent;
+      box-shadow: 0 10px 26px -10px rgba(109,139,255,.6);
+    }
+    .report-panel { display: none; }
+    .report-panel.active { display: block; animation: fadeUp .5s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+    .report-card {
+      max-width: 920px; margin: 0 auto; overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+      border: 1px solid var(--border); border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .report-head {
+      padding: 24px 30px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .report-head h3 { font-size: 19px; }
+    .report-head .meta { display: flex; gap: 18px; color: var(--text-faint); font-size: 12.5px; margin-top: 5px; flex-wrap: wrap; }
+    .report-head .tag {
+      font-size: 12px; padding: 5px 14px; border-radius: 999px;
+      background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.3); color: var(--accent-2);
+      white-space: nowrap;
+    }
+    .report-body { padding: 26px 30px 30px; display: grid; gap: 18px; }
+    .r-block { background: rgba(255,255,255,.035); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+    .r-block .r-title { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+    .r-block .r-title .t-ico { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; }
+    .r-block p, .r-block li { color: var(--text-muted); font-size: 14px; line-height: 1.8; }
+    .r-block b { color: var(--text); }
+    .r-data { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .r-data .d-item { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+    .r-data .d-item .d-label { font-size: 12px; color: var(--text-faint); }
+    .r-data .d-item .d-value { font-size: 18px; font-weight: 800; margin-top: 3px; }
+    .r-data .d-item .d-delta { font-size: 11.5px; margin-top: 2px; }
+    .r-advice { display: grid; gap: 9px; counter-reset: advice; }
+    .r-advice li { display: flex; gap: 12px; align-items: flex-start; counter-increment: advice; }
+    .r-advice li::before {
+      content: counter(advice); flex-shrink: 0; width: 22px; height: 22px; margin-top: 3px;
+      border-radius: 7px; display: grid; place-items: center;
+      background: rgba(109,139,255,.16); border: 1px solid rgba(109,139,255,.35);
+      color: #b9c6ff; font-size: 12px; font-weight: 700;
+    }
+    .t-conclusion { background: linear-gradient(120deg, rgba(109,139,255,.13), rgba(34,211,238,.07)); border-color: rgba(109,139,255,.3); }
+    .t-conclusion p { color: #d7def2; }
+    .t-reason { border-color: rgba(251,191,36,.24); }
+    .t-reason .t-ico { background: rgba(251,191,36,.14); }
+    .t-data .t-ico { background: rgba(34,211,238,.12); }
+    .t-advice .t-ico { background: rgba(52,211,153,.12); }
+
+    /* ============ FAQ ============ */
+    .faq-list { max-width: 800px; margin: 0 auto; display: grid; gap: 14px; }
+    .faq-item { border-radius: 14px; overflow: hidden; }
+    .faq-item:hover { border-color: rgba(109,139,255,.28); }
+    .faq-q {
+      width: 100%; background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 20px 22px; color: var(--text); font-size: 15.5px; font-weight: 600;
+      text-align: left; font-family: inherit;
+    }
+    .faq-q .plus { flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.06); display: grid; place-items: center; font-size: 17px; transition: transform .25s; color: var(--accent-2); }
+    .faq-item.open .faq-q .plus { transform: rotate(45deg); }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+    .faq-a-inner { padding: 0 22px 20px; color: var(--text-muted); font-size: 14px; line-height: 1.8; }
+
+    /* ============ CTA ============ */
+    .cta-band {
+      position: relative; border-radius: 26px; overflow: hidden; text-align: center;
+      padding: 76px 30px; border: 1px solid rgba(109,139,255,.3);
+      background: radial-gradient(700px 320px at 50% 0%, rgba(109,139,255,.22), transparent 70%),
+                  linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+    }
+    .cta-band h2 { font-size: clamp(26px, 3.6vw, 38px); }
+    .cta-band p { color: var(--text-muted); max-width: 520px; margin: 16px auto 30px; }
+    .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    /* ============ 页脚 ============ */
+    footer { border-top: 1px solid var(--border); padding: 64px 0 36px; background: rgba(8, 12, 24, .55); }
+    .foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 36px; margin-bottom: 48px; }
+    .foot-brand p { color: var(--text-muted); font-size: 13.5px; margin-top: 14px; max-width: 280px; line-height: 1.75; }
+    .foot-col h4 { font-size: 13px; letter-spacing: .08em; color: var(--text-faint); margin-bottom: 16px; font-weight: 600; }
+    .foot-col li { margin-bottom: 11px; }
+    .foot-col a { color: var(--text-muted); font-size: 13.5px; transition: color .2s; }
+    .foot-col a:hover { color: var(--text); }
+    .foot-bottom {
+      border-top: 1px solid var(--border); padding-top: 24px;
+      display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+      color: var(--text-faint); font-size: 12.5px;
+    }
+
+    /* 回到顶部 */
+    .to-top {
+      position: fixed; right: 26px; bottom: 26px; z-index: 90;
+      width: 44px; height: 44px; border-radius: 13px;
+      background: rgba(16,22,40,.9); border: 1px solid var(--border-strong);
+      color: var(--text); display: grid; place-items: center; cursor: pointer;
+      opacity: 0; pointer-events: none; transition: all .25s; backdrop-filter: blur(8px);
+    }
+    .to-top.show { opacity: 1; pointer-events: auto; }
+    .to-top:hover { border-color: rgba(109,139,255,.5); transform: translateY(-3px); }
+    .to-top svg { width: 18px; height: 18px; }
+
+    /* ============ 响应式 ============ */
+    @media (max-width: 1024px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 70px; }
+      .hero { padding-top: 140px; }
+      .hero-sub { max-width: 100%; }
+      .mock-wrap { max-width: 640px; margin: 0 auto; width: 100%; }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .scene-grid { grid-template-columns: repeat(2, 1fr); }
+      .flow-grid { grid-template-columns: repeat(2, 1fr); gap: 42px 18px; }
+      .flow-grid::before { display: none; }
+      .foot-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 760px) {
+      section { padding: 72px 0; }
+      .nav-links, .nav-cta .btn { display: none; }
+      .burger { display: flex; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 30px 14px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .scene-grid { grid-template-columns: 1fr; }
+      .flow-grid { grid-template-columns: 1fr; gap: 38px; }
+      .mock-body { grid-template-columns: 1fr; }
+      .mock-side { display: none; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .mock-chart-row { grid-template-columns: 1fr; }
+      .r-data { grid-template-columns: repeat(2, 1fr); }
+      .foot-grid { grid-template-columns: 1fr; }
+      .float-1 { right: 4px; }
+      .float-2 { left: 4px; }
+      .report-body { padding: 20px; }
+      .report-head { padding: 20px; }
+    }
+  
+  </style>
+  <style>
+    /* ============ 模拟体验 ============ */
+    .stepbox {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 26px; max-width: 920px; margin: 0 auto;
+    }
+    .steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .step-chip {
+      font-size: 13px; padding: 7px 14px; border-radius: 999px;
+      border: 1px solid var(--border-strong); color: var(--text-muted);
+      background: rgba(255,255,255,.03); cursor: pointer; font-family: inherit;
+    }
+    .step-chip:hover { color: var(--text); border-color: rgba(255,255,255,.3); }
+    .step-chip.active { border-color: var(--accent); color: #fff; background: rgba(109,139,255,.18); font-weight: 600; }
+    .step-chip.done { border-color: rgba(52,211,153,.4); color: var(--success); }
+    .stage { min-height: 260px; }
+    .stage .title { font-weight: 700; font-size: 16px; margin-bottom: 10px; display: flex; gap: 8px; align-items: center; color: var(--text); }
+    .stage p.sub { color: var(--text-muted); font-size: 14px; margin: 0 0 12px; }
+    .stage pre {
+      background: rgba(0,0,0,.28); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; font-size: 13px; overflow: auto;
+      color: #c9d2e6; line-height: 1.7;
+    }
+    .controls { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    .controls button {
+      font-family: inherit; font-size: 14px; padding: 9px 18px; border-radius: 10px;
+      cursor: pointer; border: 1px solid var(--border-strong);
+      background: rgba(255,255,255,.05); color: var(--text);
+    }
+    .controls button:hover { border-color: var(--accent); }
+    .controls button.primary { background: var(--gradient); border-color: transparent; color: #fff; }
+    .controls button:disabled { opacity: .45; cursor: not-allowed; }
+    .notice { font-size: 13px; color: var(--text-faint); margin-top: 16px; }
+
+    /* ============ 核心规范 ============ */
+    .rulegrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 34px; }
+    .rule {
+      border: 1px solid var(--border); border-left: 3px solid var(--accent);
+      border-radius: 12px; background: var(--bg-card); padding: 16px 18px;
+    }
+    .rule b { display: block; margin-bottom: 5px; color: var(--text); }
+    .rule span { color: var(--text-muted); font-size: 13.5px; line-height: 1.7; }
+
+    /* ============ 能力边界 ============ */
+    .boundary { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-top: 34px; }
+    .bcard { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+    .bcard .t { font-weight: 700; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+    .bcard ul { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: 13.5px; line-height: 1.8; }
+    .bcard.can { border-color: rgba(52,211,153,.28); } .bcard.can .t { color: var(--success); }
+    .bcard.cant { border-color: rgba(248,113,113,.28); } .bcard.cant .t { color: var(--danger); }
+    .bcard.manual { border-color: rgba(251,191,36,.28); } .bcard.manual .t { color: var(--warn); }
+
+    /* ============ 安全说明 ============ */
+    .safety {
+      background: linear-gradient(135deg, rgba(109,139,255,.10), rgba(34,211,238,.06));
+      border: 1px solid rgba(109,139,255,.3); border-radius: 16px; padding: 24px; margin-top: 30px;
+      max-width: 920px; margin-left: auto; margin-right: auto;
+    }
+    .safety h3 { color: var(--accent-2); margin-bottom: 10px; }
+    .safety ul { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: 14px; line-height: 1.9; }
+  </style>
+</head>
+<body>
+
+  <!-- ============ 顶部导航 ============ -->
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#6d8bff"/>
+              <stop offset="1" stop-color="#22d3ee"/>
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="16" fill="url(#lg)"/>
+          <path d="M16 43l10-13 8 6 14-19" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="48" cy="17" r="4.5" fill="#fff"/>
+        </svg>
+        <span>数据复盘员</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">功能特性</a>
+        <a href="#demo">模拟体验</a>
+        <a href="#report">复盘示例</a>
+        <a href="#rules">核心规范</a>
+        <a href="#boundary">能力边界</a>
+        <a href="#safety">安全说明</a>
+        <a href="#faq">常见问题</a>
+      </nav>
+      <div class="nav-cta">
+        <a class="btn btn-primary" href="#demo">模拟体验</a>
+        <button class="burger" id="burger" aria-label="打开菜单" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#features">功能特性</a>
+      <a href="#demo">模拟体验</a>
+      <a href="#report">复盘示例</a>
+      <a href="#rules">核心规范</a>
+      <a href="#boundary">能力边界</a>
+      <a href="#safety">安全说明</a>
+      <a href="#faq">常见问题</a>
+      <a class="btn btn-primary" href="#demo">模拟体验</a>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ============ Hero ============ -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="badge"><span class="dot"></span>AI 驱动的交易数据 Agent · 无人值守</span>
+          <h1>把每天的成交截图，<br /><span class="grad">自动变成可执行的复盘文档</span></h1>
+          <p class="hero-sub">
+            「数据复盘员」每天 21:00 自动读取飞书群里的成交截图，完成 OCR 提取、核对自检、五段式复盘，
+            并把结果投递回群。无需人工录入，也不放过任何一笔数据。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#demo">
+              模拟体验
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="#report">查看复盘示例</a>
+          </div>
+          <ul class="hero-meta">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>无需人工录入</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>每天 21:00 自动运行</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>纯静态演示 · 无真实数据</li>
+          </ul>
+        </div>
+
+        <!-- 产品模拟窗口 -->
+        <div class="mock-wrap">
+          <div class="mock">
+            <div class="mock-bar">
+              <i></i><i></i><i></i>
+              <div class="addr">复盘中心 · 数据复盘-2026-08-17（示例）</div>
+            </div>
+            <div class="mock-body">
+              <div class="mock-side">
+                <span class="on">📊</span>
+                <span>🧮</span>
+                <span>🧩</span>
+                <span>⚙️</span>
+              </div>
+              <div class="mock-main">
+                <div class="mock-title">
+                  <h4>每日数据复盘</h4>
+                  <span class="chip">AI 已生成</span>
+                </div>
+                <div class="kpis">
+                  <div class="kpi">
+                    <div class="label">总笔数</div>
+                    <div class="value">40</div>
+                    <div class="delta up">▲ 核对通过</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="label">买入</div>
+                    <div class="value">¥57,838</div>
+                    <div class="delta">15 笔</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="label">卖出</div>
+                    <div class="value">¥136,505</div>
+                    <div class="delta">25 笔</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="label">净卖出</div>
+                    <div class="value">+¥78,667</div>
+                    <div class="delta">资金流·非盈亏</div>
+                  </div>
+                </div>
+                <div class="mock-chart-row">
+                  <div class="chart-card">
+                    <div class="c-head"><b>持仓变化</b><span>当日 · 示例</span></div>
+                    <div style="display:grid; gap:8px; font-size:11.5px; color:var(--text-muted); line-height:1.6;">
+                      <div><span style="color:var(--danger)">●</span> 大中转债 −100 张</div>
+                      <div><span style="color:var(--danger)">●</span> 赛斯转债 −20 张</div>
+                      <div><span style="color:var(--danger)">●</span> 微导转债 −10 张</div>
+                      <div><span style="color:var(--danger)">●</span> 航天智造 −2000 股</div>
+                      <div><span style="color:var(--success)">●</span> 炬申转债 +20 张 · 新开仓</div>
+                    </div>
+                  </div>
+                  <div class="chart-card">
+                    <div class="c-head"><b>五段式输出</b><span>模板固定</span></div>
+                    <div style="display:grid; gap:6px; font-size:11.5px; color:var(--text-muted); line-height:1.7;">
+                      <div>① 汇总（含资金流口径）</div>
+                      <div>② 今日总结（持仓变化）</div>
+                      <div>③ 改进点（量化）</div>
+                      <div>④ 次日策略（带价位）</div>
+                      <div>⑤ 成交明细（逐笔）</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ai-note">
+                  <div class="spark">✦</div>
+                  <p><b>AI 洞察：</b>净卖出额是资金流、不是盈亏；改进点已量化（赛斯转债价差 +5.91 元/张 × 30 张 ≈ +177 元），次日策略均带止损价位。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="float-chip float-1">
+            <div class="ico">✓</div>
+            <div><b>复盘文档已生成</b><small>21:00 自动投递</small></div>
+          </div>
+          <div class="float-chip float-2">
+            <div class="ico">🎯</div>
+            <div><b>核对通过</b><small>40 笔无出入</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 数据条 ============ -->
+    <section class="stats" style="padding-top:0;">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat reveal">
+            <div class="num"><span class="count" data-target="21">0</span><span class="unit">点</span></div>
+            <div class="desc">每天自动运行</div>
+          </div>
+          <div class="stat reveal">
+            <div class="num"><span class="count" data-target="40">0</span><span class="unit">笔</span></div>
+            <div class="desc">单日核对量（示例）</div>
+          </div>
+          <div class="stat reveal">
+            <div class="num"><span class="count" data-target="5">0</span><span class="unit">段</span></div>
+            <div class="desc">固定复盘模板</div>
+          </div>
+          <div class="stat reveal">
+            <div class="num"><span class="count" data-target="0">0</span><span class="unit">笔</span></div>
+            <div class="desc">编造数据（规则禁止）</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 功能特性 ============ -->
+    <section class="features" id="features">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Core Capabilities</div>
+          <h2>不止是报告，是完整的复盘闭环</h2>
+          <p>从收图到投递全流程自动完成，人只需要看结论、做决策。</p>
+        </div>
+        <div class="feature-grid">
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+            </div>
+            <h3>截图 OCR 提取</h3>
+            <p>自动识别时间、品种、操作、价格、数量、金额，只收录"普通成交"，不放过任何一笔。</p>
+          </div>
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <h3>逐笔核对自检</h3>
+            <p>金额 = 价格 × 数量逐笔复算，总笔数、总金额双重核对，再随机抽验，发现不一致立即报错。</p>
+          </div>
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+            </div>
+            <h3>五段式复盘模板</h3>
+            <p>汇总、今日总结、改进点、次日操作策略、成交明细，格式逐日一致，方便长期对比。</p>
+          </div>
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <h3>改进点必须量化</h3>
+            <p>每条改进点至少包含金额、价差或笔数，无法量化就不输出，避免"低卖高买"这类空话。</p>
+          </div>
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3>策略必带价位</h3>
+            <p>每个持仓品种给出触发价位与条件分支，至少含止损价，让"次日策略"真的可执行。</p>
+          </div>
+          <div class="card feature reveal">
+            <div class="f-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <h3>定时投递飞书</h3>
+            <p>每日 21:00 自动生成云文档并投递回群，失败时在对话里说明失败原因，绝不静默跳过。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 模拟体验 ============ -->
+    <section class="demo" id="demo" style="background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent);">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Live Demo</div>
+          <h2>一次运行，从头到尾长这样</h2>
+          <p>点击下方步骤，体验 Agent 从收到截图到投递文档的完整流程。<span style="color:var(--text-faint)">演示数据均为虚构样例。</span></p>
+        </div>
+        <div class="stepbox reveal">
+          <div class="steps" id="steps"></div>
+          <div class="stage" id="stage"></div>
+          <div class="controls">
+            <button type="button" id="prev" disabled>上一步</button>
+            <button type="button" id="next" class="primary">下一步</button>
+            <button type="button" id="replay">重新播放</button>
+          </div>
+          <div class="notice">本演示为纯前端模拟：不调用任何真实 API，不读取真实数据，访客无法触发或访问真实 Agent。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 工作流程 ============ -->
+    <section class="flow" id="workflow">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">How It Works</div>
+          <h2>四步，完成一次无人值守复盘</h2>
+          <p>配置一次，之后每天 21:00 自动运行。</p>
+        </div>
+        <div class="flow-grid">
+          <div class="flow-step reveal">
+            <div class="num">01</div>
+            <h3>收图</h3>
+            <p>群内收到当日 5-8 张成交截图（收盘后、21:00 前），无需任何人工整理。</p>
+          </div>
+          <div class="flow-step reveal">
+            <div class="num">02</div>
+            <h3>识别核对</h3>
+            <p>OCR 逐笔提取，金额复算、总数核对、随机抽验，一步不落。</p>
+          </div>
+          <div class="flow-step reveal">
+            <div class="num">03</div>
+            <h3>生成复盘</h3>
+            <p>按五段式模板写入飞书文档「数据复盘-YYYY-MM-DD」，并读回核验。</p>
+          </div>
+          <div class="flow-step reveal">
+            <div class="num">04</div>
+            <h3>投递反馈</h3>
+            <p>文档链接、笔数汇总、持仓变化与次日策略投递回群，并记录运行日志。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 复盘示例 ============ -->
+    <section class="report" id="report">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Sample Reports</div>
+          <h2>它产出的复盘长什么样</h2>
+          <p>点开不同标签，看五段式模板、量化改进点和带价位策略。<span style="color:var(--text-faint)">演示数据均为虚构。</span></p>
+        </div>
+
+        <div class="tabs reveal" role="tablist">
+          <button class="tab-btn active" data-tab="weekly" role="tab">五段式示例</button>
+          <button class="tab-btn" data-tab="project" role="tab">量化改进点</button>
+          <button class="tab-btn" data-tab="campaign" role="tab">带价位策略</button>
+        </div>
+
+        <!-- 五段式示例 -->
+        <div class="report-panel active" id="panel-weekly">
+          <div class="report-card reveal visible">
+            <div class="report-head">
+              <div>
+                <h3>数据复盘 · 2026-08-17（示例）</h3>
+                <div class="meta">
+                  <span>输入：5 张成交截图</span>
+                  <span>生成时间：21:00</span>
+                  <span>模板：五段式 v1.2</span>
+                </div>
+              </div>
+              <span class="tag">演示数据 · 虚构</span>
+            </div>
+            <div class="report-body">
+              <div class="r-block t-conclusion">
+                <div class="r-title"><span class="t-ico">💡</span>一、汇总</div>
+                <p>当日<b>净卖出 +78,667.05 元（资金流，非盈亏）</b>；炬申转债新开仓 20 张；T+0 回转估算毛利 +495.86 元（未含费用）；整体盈亏因缺期初成本<b>未计算，如实标注</b>。</p>
+              </div>
+              <div class="r-block t-data">
+                <div class="r-title"><span class="t-ico">📊</span>关键数字</div>
+                <div class="r-data">
+                  <div class="d-item"><div class="d-label">总笔数</div><div class="d-value">40</div><div class="d-delta up">核对通过</div></div>
+                  <div class="d-item"><div class="d-label">买入</div><div class="d-value">¥57,838.27</div><div class="d-delta">15 笔</div></div>
+                  <div class="d-item"><div class="d-label">卖出</div><div class="d-value">¥136,505.32</div><div class="d-delta">25 笔</div></div>
+                  <div class="d-item"><div class="d-label">净卖出</div><div class="d-value">+¥78,667.05</div><div class="d-delta">资金流·非盈亏</div></div>
+                </div>
+              </div>
+              <div class="r-block t-reason">
+                <div class="r-title"><span class="t-ico">🔍</span>二、今日总结</div>
+                <p>大中转债 −100 张、赛斯转债 −20 张、微导转债 −10 张、航天智造 −2000 股、金陵体育 −600 股；炬申转债 +20 张（新开仓）。做 T 品种价差为正：赛斯转债买均价 165.07 vs 卖均价 170.98。</p>
+              </div>
+              <div class="r-block t-advice">
+                <div class="r-title"><span class="t-ico">✅</span>三、改进点 + 四、次日策略</div>
+                <ul class="r-advice">
+                  <li>改进点全部量化：价差、金额、笔数至少占一（见「量化改进点」标签）。</li>
+                  <li>次日策略全部带价位：每个持仓至少给止损价（见「带价位策略」标签）。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 量化改进点 -->
+        <div class="report-panel" id="panel-project">
+          <div class="report-card reveal visible">
+            <div class="report-head">
+              <div>
+                <h3>改进点示例（量化）</h3>
+                <div class="meta">
+                  <span>规则：Profile v1.2</span>
+                  <span>无法量化则不输出</span>
+                  <span>全部为演示</span>
+                </div>
+              </div>
+              <span class="tag">量化改进</span>
+            </div>
+            <div class="report-body">
+              <div class="r-block t-conclusion">
+                <div class="r-title"><span class="t-ico">💡</span>核心结论</div>
+                <p>每条改进点都有数字：<b>价差、配对数量、估算金额</b>，至少包含其一，杜绝"卖点不好"这类定性表述。</p>
+              </div>
+              <div class="r-block t-data">
+                <div class="r-title"><span class="t-ico">📊</span>赛斯转债做 T</div>
+                <div class="r-data">
+                  <div class="d-item"><div class="d-label">买均价</div><div class="d-value">165.07</div><div class="d-delta">元/张</div></div>
+                  <div class="d-item"><div class="d-label">卖均价</div><div class="d-value">170.98</div><div class="d-delta">元/张</div></div>
+                  <div class="d-item"><div class="d-label">价差</div><div class="d-value up">+5.91</div><div class="d-delta">元/张</div></div>
+                  <div class="d-item"><div class="d-label">估算毛利</div><div class="d-value up">+177.36</div><div class="d-delta">30 张 · 未含费用</div></div>
+                </div>
+              </div>
+              <div class="r-block t-reason">
+                <div class="r-title"><span class="t-ico">🔍</span>归因分析</div>
+                <p>航天智造 13:49 以 13.740 卖出 2000 股后，14:40 又以 13.790 买回，属低卖高买：价差 0.05 元/股 × 2000 股 ≈ <b>少收约 100 元</b>。</p>
+              </div>
+              <div class="r-block t-advice">
+                <div class="r-title"><span class="t-ico">✅</span>行动建议</div>
+                <ul class="r-advice">
+                  <li>做 T 优先保留价差为正的品种，写清配对数量与目标价差。</li>
+                  <li>大中转债午后卖出点位分散（339–352），可设"分批挂单 + 反弹阈值"集中把握高点。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 带价位策略 -->
+        <div class="report-panel" id="panel-campaign">
+          <div class="report-card reveal visible">
+            <div class="report-head">
+              <div>
+                <h3>次日操作策略示例（带价位）</h3>
+                <div class="meta">
+                  <span>至少含止损价</span>
+                  <span>触发条件明确</span>
+                  <span>执行前需人工确认</span>
+                </div>
+              </div>
+              <span class="tag">带价位策略</span>
+            </div>
+            <div class="report-body">
+              <div class="r-block t-data">
+                <div class="r-title"><span class="t-ico">📊</span>炬申转债（新开仓）</div>
+                <div class="r-data">
+                  <div class="d-item"><div class="d-label">持仓</div><div class="d-value">20 张</div><div class="d-delta">成本约 186.12</div></div>
+                  <div class="d-item"><div class="d-label">止损价</div><div class="d-value down">182</div><div class="d-delta">跌破离场</div></div>
+                  <div class="d-item"><div class="d-label">持有价</div><div class="d-value up">188</div><div class="d-delta">站回持有</div></div>
+                  <div class="d-item"><div class="d-label">状态</div><div class="d-value">观察</div><div class="d-delta">新仓</div></div>
+                </div>
+              </div>
+              <div class="r-block t-reason">
+                <div class="r-title"><span class="t-ico">🔍</span>大中转债（已减仓）</div>
+                <p>观察能否企稳再定去留：<b>跌破 350 止损，站回 355 持有</b>；不再加仓，直到趋势明确。</p>
+              </div>
+              <div class="r-block t-advice">
+                <div class="r-title"><span class="t-ico">✅</span>行动建议</div>
+                <ul class="r-advice">
+                  <li>跌破止损价离场，不补仓、不摊薄。</li>
+                  <li>站回持有价且放量，再考虑持有观察。</li>
+                  <li>执行前请结合大盘、仓位、资金确认（固定提示语）。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 核心规范 ============ -->
+    <section class="rules" id="rules" style="background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent);">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Rules</div>
+          <h2>它被要求严格遵守这些规则</h2>
+          <p>能力边界来自明确的规则约束（Profile v1.2），而不是模型自由发挥。</p>
+        </div>
+        <div class="rulegrid reveal">
+          <div class="rule"><b>不编造数据</b><span>识别置信度不足的字段标记"待确认"，绝不自行猜测补全。</span></div>
+          <div class="rule"><b>资金流 ≠ 盈亏</b><span>净卖出额仅标注"资金流"，不得冒充当日盈利/亏损。</span></div>
+          <div class="rule"><b>改进点必须量化</b><span>每条改进点至少包含金额/价差/笔数，无法量化则不输出。</span></div>
+          <div class="rule"><b>策略必须带价位</b><span>每个持仓品种给出触发价位或条件分支，至少含止损价。</span></div>
+          <div class="rule"><b>持仓语义校验</b><span>买卖数量相等≠平仓；"卖出后追回/做 T"须与明细推导一致。</span></div>
+          <div class="rule"><b>失败即说明</b><span>缺输入、识别失败、核对不一致时，输出明确失败原因，不静默跳过。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 能力边界 ============ -->
+    <section class="boundary-sec" id="boundary">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Boundaries</div>
+          <h2>能做 · 不能做 · 需要人</h2>
+          <p>把边界写清楚，比把能力吹大更重要。</p>
+        </div>
+        <div class="boundary reveal">
+          <div class="bcard can"><div class="t">✅ 能独立完成</div><ul><li>截图 OCR 提取与金额复算</li><li>总数核对、随机抽验</li><li>五段式复盘文档生成</li><li>结果投递飞书群、运行日志</li></ul></div>
+          <div class="bcard cant"><div class="t">⛔ 明确不做</div><ul><li>模糊/残缺截图（拒绝写入，不编造）</li><li>缺少期初持仓成本时的整体盈亏</li><li>大盘/板块/仓位/资金分析</li><li>投资建议与交易执行</li></ul></div>
+          <div class="bcard manual"><div class="t">⚠️ 需要人工介入</div><ul><li>截图混入另一天数据（需确认日期）</li><li>总数核对不一致且无法定位</li><li>文档被他人修改</li><li>当天群内无截图（报告"缺输入"，不生成空文档）</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 安全说明 ============ -->
+    <section id="safety" style="background: linear-gradient(180deg, transparent, rgba(255,255,255,.018) 18%, rgba(255,255,255,.018) 82%, transparent);">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Security</div>
+          <h2>本页面可以放心公开展示</h2>
+        </div>
+        <div class="safety reveal">
+          <h3>纯静态演示页</h3>
+          <ul>
+            <li>无后端、无数据库、无任何 API 调用——打开即用，任何静态托管都能跑。</li>
+            <li>页面不含真实交易数据，全部为虚构示例；真实 Agent 仅在本机私有环境运行。</li>
+            <li>访客无法通过本页面调用、触发或访问真实 Agent 与任何飞书资源。</li>
+            <li>展示的是 Agent 的"功能、规范与边界"，不是它的真实运行入口。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 常见问题 ============ -->
+    <section class="faq" id="faq">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">FAQ</div>
+          <h2>常见问题</h2>
+        </div>
+        <div class="faq-list reveal">
+          <div class="card faq-item">
+            <button class="faq-q">需要开发或写代码吗？<span class="plus">+</span></button>
+            <div class="faq-a"><div class="faq-a-inner">不需要。把当日成交截图发到飞书群，Agent 自动完成 OCR、核对、生成复盘文档并投递回群。</div></div>
+          </div>
+          <div class="card faq-item">
+            <button class="faq-q">什么时候运行？<span class="plus">+</span></button>
+            <div class="faq-a"><div class="faq-a-inner">默认每天 21:00（Asia/Shanghai）自动运行一次；截图实时发到群里也会走即时处理；还支持手动补跑。</div></div>
+          </div>
+          <div class="card faq-item">
+            <button class="faq-q">输出在哪里？<span class="plus">+</span></button>
+            <div class="faq-a"><div class="faq-a-inner">飞书云文档「数据复盘-YYYY-MM-DD」，生成后把文档链接、笔数汇总、持仓变化与次日策略投递到群。</div></div>
+          </div>
+          <div class="card faq-item">
+            <button class="faq-q">它会编造数据吗？<span class="plus">+</span></button>
+            <div class="faq-a"><div class="faq-a-inner">不会。识别置信度不足会标"待确认"，总数核对不一致会报错并说明失败原因，缺输入时不生成空文档。</div></div>
+          </div>
+          <div class="card faq-item">
+            <button class="faq-q">数据安全怎么保证？<span class="plus">+</span></button>
+            <div class="faq-a"><div class="faq-a-inner">真实运行只在你的私有环境（Hermes 网关 + 飞书）里进行；本展示页是纯静态页面，不含真实数据、不接 API，访客无法触发真实 Agent。</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CTA ============ -->
+    <section id="cta" style="padding-top: 0;">
+      <div class="container">
+        <div class="cta-band reveal">
+          <h2>想让每天的复盘自动完成吗？</h2>
+          <p>把成交截图发到飞书群，21:00 自动收到一份可执行的复盘文档。本页为演示，不接任何真实数据。</p>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="#demo">模拟体验</a>
+            <a class="btn btn-ghost" href="#boundary">查看能力边界</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 页脚 ============ -->
+  <footer>
+    <div class="container">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="#top">
+            <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+              <rect width="64" height="64" rx="16" fill="url(#lg)"/>
+              <path d="M16 43l10-13 8 6 14-19" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="48" cy="17" r="4.5" fill="#fff"/>
+            </svg>
+            <span>数据复盘员</span>
+          </a>
+          <p>把每天的成交截图，自动变成可执行的复盘文档。</p>
+        </div>
+        <div class="foot-col">
+          <h4>产品</h4>
+          <ul>
+            <li><a href="#features">功能特性</a></li>
+            <li><a href="#demo">模拟体验</a></li>
+            <li><a href="#report">复盘示例</a></li>
+            <li><a href="#faq">常见问题</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>规范</h4>
+          <ul>
+            <li><a href="#rules">核心规范</a></li>
+            <li><a href="#boundary">能力边界</a></li>
+            <li><a href="#safety">安全说明</a></li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>关于</h4>
+          <ul>
+            <li><a href="#safety">纯静态演示</a></li>
+            <li><a href="#safety">无真实数据</a></li>
+            <li><a href="#safety">不接 API</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 数据复盘员 · Agent Showcase</span>
+        <span>演示数据均为虚构 · 静态演示</span>
+      </div>
+    </div>
+  </footer>
+
+  <button class="to-top" id="toTop" aria-label="回到顶部">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
+
+  <script>
+    
+    (function () {
+      // ---- 导航滚动效果 ----
+      var nav = document.getElementById('nav');
+      var toTop = document.getElementById('toTop');
+      function onScroll() {
+        var y = window.scrollY;
+        nav.classList.toggle('scrolled', y > 12);
+        toTop.classList.toggle('show', y > 600);
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+
+      // ---- 移动端菜单 ----
+      var burger = document.getElementById('burger');
+      var mobileMenu = document.getElementById('mobileMenu');
+      burger.addEventListener('click', function () {
+        var open = mobileMenu.classList.toggle('open');
+        burger.classList.toggle('open', open);
+        burger.setAttribute('aria-expanded', open);
+      });
+      mobileMenu.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () {
+          mobileMenu.classList.remove('open');
+          burger.classList.remove('open');
+          burger.setAttribute('aria-expanded', 'false');
+        });
+      });
+
+      // ---- 滚动显现 ----
+      var revealEls = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('visible');
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        revealEls.forEach(function (el) { io.observe(el); });
+      } else {
+        revealEls.forEach(function (el) { el.classList.add('visible'); });
+      }
+
+      // ---- 数字滚动 ----
+      function animateCount(el) {
+        var target = parseInt(el.dataset.target, 10) || 0;
+        var duration = 1400;
+        var start = null;
+        function step(ts) {
+          if (!start) start = ts;
+          var p = Math.min((ts - start) / duration, 1);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased);
+          if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+      var countEls = document.querySelectorAll('.count');
+      if ('IntersectionObserver' in window) {
+        var cio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              animateCount(e.target);
+              cio.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.6 });
+        countEls.forEach(function (el) { cio.observe(el); });
+      } else {
+        countEls.forEach(function (el) { el.textContent = el.dataset.target; });
+      }
+
+      // ---- 复盘示例 Tab 切换 ----
+      var tabBtns = document.querySelectorAll('.tab-btn');
+      var panels = {
+        weekly: document.getElementById('panel-weekly'),
+        project: document.getElementById('panel-project'),
+        campaign: document.getElementById('panel-campaign')
+      };
+      tabBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          tabBtns.forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          Object.keys(panels).forEach(function (k) {
+            panels[k].classList.toggle('active', k === btn.dataset.tab);
+          });
+        });
+      });
+
+      // ---- FAQ 手风琴 ----
+      var faqItems = document.querySelectorAll('.faq-item');
+      faqItems.forEach(function (item) {
+        var q = item.querySelector('.faq-q');
+        var a = item.querySelector('.faq-a');
+        q.addEventListener('click', function () {
+          var isOpen = item.classList.contains('open');
+          faqItems.forEach(function (other) {
+            other.classList.remove('open');
+            other.querySelector('.faq-a').style.maxHeight = '0px';
+          });
+          if (!isOpen) {
+            item.classList.add('open');
+            a.style.maxHeight = a.scrollHeight + 'px';
+          }
+        });
+      });
+
+      // ---- 回到顶部 ----
+      toTop.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+  
+  </script>
+
+  <script>
+    (function () {
+      var stages = [
+        {
+          title: "收到 5 张成交截图",
+          html: '<div class="title">📥 飞书群「数据复盘员」收到当日截图</div>' +
+            '<p class="sub">5 张券商 App「当日成交」页截图，于收盘后发送到群内。</p>' +
+            '<pre>消息 #1  image  成交页 · 09:30–10:00\n消息 #2  image  成交页 · 10:00–11:30\n消息 #3  image  成交页 · 11:30–13:40\n消息 #4  image  成交页 · 13:40–14:30\n消息 #5  image  成交页 · 14:30–15:00</pre>'
+        },
+        {
+          title: "OCR 逐笔提取",
+          html: '<div class="title">🔍 识别 40 笔成交记录</div>' +
+            '<p class="sub">按固定列位提取：时间 / 品种 / 操作 / 价格 / 数量 / 金额，只收录"普通成交"。</p>' +
+            '<pre>09:36:54  大中转债(127070)  卖出  350.783  20   7,015.66\n09:41:11  赛斯转债(118073)  买入  165.607  20   3,312.14\n09:47:27  微导转债(118058)  卖出  474.560  10   4,745.60\n10:03:53  大中转债(127070)  买入  352.237  20   7,044.74\n… （共 40 笔，金额 = 价格 × 数量 逐笔复算一致）</pre>'
+        },
+        {
+          title: "核对与自检",
+          html: '<div class="title">✅ 总数核对通过</div>' +
+            '<pre>总笔数 40 ｜ 买入 15 笔 ｜ 卖出 25 笔\n买入金额 57,838.27 元 ｜ 卖出金额 136,505.32 元\n抽查买入/卖出各 5 笔：价格 × 数量 = 金额 ✓\n未发现撤单 / 废单 / 待成交混入 ✓</pre>'
+        },
+        {
+          title: "汇总与盈亏口径",
+          html: '<div class="title">📊 三组数字 + 持仓变化</div>' +
+            '<pre>净卖出额 +78,667.05 元（资金流，非盈亏）\n持仓变化：大中转债 −100 张 ｜ 赛斯转债 −20 张 ｜ 微导转债 −10 张\n          航天智造 −2000 股 ｜ 金陵体育 −600 股 ｜ 炬申转债 +20 张（新开仓）\n盈亏：T+0 回转估算毛利 +495.86 元（估算、未含费用）\n      其余净卖出品种缺期初成本 → 整体盈亏未计算（如实标注）</pre>'
+        },
+        {
+          title: "生成五段式复盘文档",
+          html: '<div class="title">📄 写入飞书文档「数据复盘-2026-08-17」</div>' +
+            '<p class="sub">一、汇总 / 二、今日总结 / 三、改进点（量化）/ 四、次日操作策略（带价位）/ 五、成交明细（5 张表 · 40 笔）。</p>' +
+            '<pre>文档已生成并读回核验通过\n改进点示例：赛斯转债价差 +5.91 元/张，配对 30 张毛利约 +177.36 元\n策略示例：炬申转债跌破 182 止损，站回 188 持有</pre>'
+        },
+        {
+          title: "投递到飞书群",
+          html: '<div class="title">📨 结果已投递</div>' +
+            '<p class="sub">群内收到机器人消息：文档链接 + 笔数汇总 + 持仓变化与盈亏说明 + 次日操作策略。</p>' +
+            '<pre>✅ Cronjob Response: 数据复盘-每日21点\n📄 https://feishu.cn/docx/xxxxxxxxxxxxxxxx（示例链接）\n总笔数 40 ｜ 买入 57,838.27 元 ｜ 卖出 136,505.32 元\n（本页为演示，链接为占位符）</pre>'
+        }
+      ];
+
+      var stepsEl = document.getElementById("steps");
+      var stageEl = document.getElementById("stage");
+      var cur = 0, done = new Set();
+
+      function render() {
+        stepsEl.innerHTML = stages.map(function (s, i) {
+          return '<button type="button" class="step-chip ' + (i === cur ? "active" : "") + ' ' + (done.has(i) ? "done" : "") + '" onclick="window.__demoGo(' + i + ')">' + (i + 1) + '. ' + s.title.split(" ").slice(1).join(" ") + '</button>';
+        }).join("");
+        stageEl.innerHTML = stages[cur].html;
+        document.getElementById("prev").disabled = cur === 0;
+        document.getElementById("next").disabled = cur === stages.length - 1;
+        document.getElementById("next").textContent = cur === stages.length - 1 ? "完成" : "下一步";
+      }
+
+      window.__demoGo = function (i) {
+        cur = Math.max(0, Math.min(stages.length - 1, i));
+        if (i > 0) done.add(i - 1);
+        render();
+      };
+
+      document.getElementById("next").addEventListener("click", function () { window.__demoGo(cur + 1); });
+      document.getElementById("prev").addEventListener("click", function () { window.__demoGo(cur - 1); });
+      document.getElementById("replay").addEventListener("click", function () { cur = 0; done.clear(); render(); });
+      render();
+    })();
+  </script>
+</body>
+</html>
